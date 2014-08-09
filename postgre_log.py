@@ -48,11 +48,39 @@ def create_table():
         cursor.close()
 
 
+def msg_cb(command, buf, date, tags, displayed, hilight, username, msg):
+    servername = weechat.buffer_get_string(buf, 'localvar_server')
+    channelname = weechat.buffer_get_string(buf, 'short_name')
+    insert_log(servername, channelname, username, msg, hilight, command, date)
+    return weechat.WEECHAT_RC_OK
+
+
+def insert_log(servername, channelname, username, message, hilight,
+               command, time):
+    cursor = connect.cursor()
+    try:
+        query = ("INSERT INTO"
+                 "  weechat_message (username, servername, channelname,"
+                 "    message, hilight, command, time)"
+                 "  VALUES ('%s', '%s', '%s', '%s', %s, '%s',"
+                 "    to_timestamp(%s))")
+        cursor.execute(query %
+                       (username, servername, channelname,
+                        message, hilight, command, time))
+        connect.commit()
+    except Exception as ex:
+        weechat.prnt('', "Exception in insert_message: %s" % ex.message)
+        raise ex
+    finally:
+        cursor.close()
+
+
 def main():
     global connect
     connect = psycopg2.connect(dbname='weechat', user='weechat')
     if not check_table_exists():
         create_table()
+    weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb', 'PRIVMSG')
 
 
 def shutdown_cb():
