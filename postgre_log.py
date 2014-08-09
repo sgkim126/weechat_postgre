@@ -55,6 +55,14 @@ def msg_cb(command, buf, date, tags, displayed, hilight, username, msg):
     return weechat.WEECHAT_RC_OK
 
 
+def log_cb(command, buf, date, tags, displayed, hilight, prefix, msg):
+    servername = weechat.buffer_get_string(buf, 'localvar_server')
+    channelname = weechat.buffer_get_string(buf, 'short_name')
+    username = msg.split()[0]
+    insert_log(servername, channelname, username, msg, hilight, command, date)
+    return weechat.WEECHAT_RC_OK
+
+
 def insert_log(servername, channelname, username, message, hilight,
                command, time):
     cursor = connect.cursor()
@@ -81,6 +89,8 @@ def main():
     if not check_table_exists():
         create_table()
     weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb', 'PRIVMSG')
+    weechat.hook_print('', 'irc_join', '', 1, 'log_cb', 'JOIN')
+    weechat.hook_print('', 'irc_part', '', 1, 'log_cb', 'PART')
 
 
 def shutdown_cb():
