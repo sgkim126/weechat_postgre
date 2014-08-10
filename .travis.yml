@@ -4,4 +4,4 @@ python:
 install:
     - pip install pep8
 script:
-    - pep8 postgre_log.py
+    - pep8 postgre_log.py main.py
