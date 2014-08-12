@@ -1,5 +1,6 @@
 import psycopg2
 import weechat
+import urllib
 
 
 SCRIPT_NAME = "postgre_log"
@@ -32,10 +33,10 @@ def create_table():
     try:
         query = ("CREATE TABLE weechat_message ("
                  "  id SERIAL PRIMARY KEY,"
-                 "  username CHAR(16) NOT NULL,"
-                 "  servername VARCHAR(64) NOT NULL,"
-                 "  channelname VARCHAR(50) NOT NULL,"
-                 "  message VARCHAR(512) NOT NULL,"
+                 "  username VARCHAR(100) NOT NULL,"
+                 "  servername VARCHAR(300) NOT NULL,"
+                 "  channelname VARCHAR(300) NOT NULL,"
+                 "  message VARCHAR(2000) NOT NULL,"
                  "  hilight CHAR(1) NOT NULL,"
                  "  command VARCHAR(16) NOT NULL,"
                  "  time TIMESTAMP WITH TIME ZONE NOT NULL)")
@@ -67,6 +68,10 @@ def insert_log(servername, channelname, username, message, hilight,
                command, time):
     cursor = connect.cursor()
     try:
+        servername = urllib.quote(servername)
+        channelname = urllib.quote(channelname)
+        username = urllib.quote(username)
+        message = urllib.quote(message)
         query = ("INSERT INTO"
                  "  weechat_message (username, servername, channelname,"
                  "    message, hilight, command, time)"
@@ -96,6 +101,7 @@ def main():
 def shutdown_cb():
     if connect:
         connect.close()
+    return weechat.WEECHAT_RC_OK
 
 
 if __name__ == '__main__':
