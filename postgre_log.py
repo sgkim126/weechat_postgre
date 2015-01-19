@@ -94,6 +94,7 @@ def main():
 
 
 def shutdown_cb():
+    global connect
     if connect:
         connect.close()
 
