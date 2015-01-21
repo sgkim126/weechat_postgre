@@ -10,6 +10,9 @@ SCRIPT_DESC = "Save messages in PostgreSQL"
 
 
 connect = None
+msg_hook = None
+part_hook = None
+join_hook = None
 
 
 def check_table_exists():
@@ -83,24 +86,52 @@ def insert_log(servername, channelname, username, message, hilight,
         cursor.close()
 
 
-def main():
+def postgre_log_enable_cb(data, buffer, args):
     global connect
+    global msg_hook
+    global join_hook
+    global part_hook
     connect = psycopg2.connect(dbname='weechat', user='weechat')
+
     if not check_table_exists():
         create_table()
-    weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb', 'PRIVMSG')
-    weechat.hook_print('', 'irc_join', '', 1, 'log_cb', 'JOIN')
-    weechat.hook_print('', 'irc_part', '', 1, 'log_cb', 'PART')
+    msh_hook = weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb',
+                                  'PRIVMSG')
+    join_hook = weechat.hook_print('', 'irc_join', '', 1, 'log_cb', 'JOIN')
+    part_hook = weechat.hook_print('', 'irc_part', '', 1, 'log_cb', 'PART')
+    return weechat.WEECHAT_RC_OK
+
+
+def postgre_log_disable_cb(data=None, buffer=None, args=None):
+    global connect
+    global msg_hook
+    global join_hook
+    global part_hook
+    if connect is None:
+        weechat.prnt('', "postgre_log is already disabled.")
+        return weechat.WEECHAT_RC_OK
+    connect.close()
+    connect = None
+    if msg_hook:
+        weechat.unhook(msg_hook)
+        msg_hook = None
+    if join_hook:
+        weechat.unhook(join_hook)
+        join_hook = None
+    if part_hook:
+        weechat.unhook(part_hook)
+        part_hook = None
+    return weechat.WEECHAT_RC_OK
 
 
 def shutdown_cb():
-    global connect
-    if connect:
-        connect.close()
-    return weechat.WEECHAT_RC_OK
+    return postgre_log_disable_cb()
 
 
 if __name__ == '__main__':
     if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
                         SCRIPT_LICENCE, SCRIPT_DESC, 'shutdown_cb', ''):
-        main()
+        weechat.hook_command('postgre_log_enable', "Enable the postgre log.",
+                             '', '', '', 'postgre_log_enable_cb', '')
+        weechat.hook_command('postgre_log_disable', "Disable the postgre log.",
+                             '', '', '', 'postgre_log_disable_cb', '')
