@@ -91,7 +91,12 @@ def postgre_log_enable_cb(data, buffer, args):
     global msg_hook
     global join_hook
     global part_hook
-    connect = psycopg2.connect(dbname='weechat', user='weechat')
+
+    try:
+        connect = psycopg2.connect(args)
+    except psycopg2.OperationalError as ex:
+        weechat.prnt('', 'Valid connection string is required.')
+        return weechat.WEECHAT_RC_ERROR
 
     if not check_table_exists():
         create_table()
@@ -132,6 +137,7 @@ if __name__ == '__main__':
     if weechat.register(SCRIPT_NAME, SCRIPT_AUTHOR, SCRIPT_VERSION,
                         SCRIPT_LICENCE, SCRIPT_DESC, 'shutdown_cb', ''):
         weechat.hook_command('postgre_log_enable', "Enable the postgre log.",
-                             '', '', '', 'postgre_log_enable_cb', '')
+                             'connection_string', '', '',
+                             'postgre_log_enable_cb', '')
         weechat.hook_command('postgre_log_disable', "Disable the postgre log.",
                              '', '', '', 'postgre_log_disable_cb', '')
