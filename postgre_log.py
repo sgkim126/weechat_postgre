@@ -97,6 +97,7 @@ def shutdown_cb():
     global connect
     if connect:
         connect.close()
+    return weechat.WEECHAT_RC_OK
 
 
 if __name__ == '__main__':
