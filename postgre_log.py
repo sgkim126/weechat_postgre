@@ -100,7 +100,7 @@ def postgre_log_enable_cb(data, buffer, args):
 
     if not check_table_exists():
         create_table()
-    msh_hook = weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb',
+    msg_hook = weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb',
                                   'PRIVMSG')
     join_hook = weechat.hook_print('', 'irc_join', '', 1, 'log_cb', 'JOIN')
     part_hook = weechat.hook_print('', 'irc_part', '', 1, 'log_cb', 'PART')
