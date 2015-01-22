@@ -9,14 +9,14 @@ SCRIPT_LICENCE = "GPL3"
 SCRIPT_DESC = "Save messages in PostgreSQL"
 
 
-connect = None
+connection = None
 msg_hook = None
 part_hook = None
 join_hook = None
 
 
 def check_table_exists():
-    cursor = connect.cursor()
+    cursor = connection.cursor()
     try:
         query = ("SELECT *"
                  "  FROM information_schema.tables"
@@ -31,7 +31,7 @@ def check_table_exists():
 
 
 def create_table():
-    cursor = connect.cursor()
+    cursor = connection.cursor()
     try:
         query = ("CREATE TABLE weechat_message ("
                  "  id SERIAL PRIMARY KEY,"
@@ -43,7 +43,7 @@ def create_table():
                  "  command VARCHAR(16) NOT NULL,"
                  "  time TIMESTAMP WITH TIME ZONE NOT NULL)")
         cursor.execute(query)
-        connect.commit()
+        connection.commit()
     except Exception as ex:
         weechat.prnt('', "Exception in create_table: %s" % ex.message)
         raise ex
@@ -68,7 +68,7 @@ def log_cb(command, buf, date, tags, displayed, hilight, prefix, msg):
 
 def insert_log(servername, channelname, username, message, hilight,
                command, time):
-    cursor = connect.cursor()
+    cursor = connection.cursor()
     try:
         query = ("INSERT INTO"
                  "  weechat_message (username, servername, channelname,"
@@ -78,7 +78,7 @@ def insert_log(servername, channelname, username, message, hilight,
         cursor.execute(query %
                        (username, servername, channelname,
                         message, hilight, command, time))
-        connect.commit()
+        connection.commit()
     except Exception as ex:
         weechat.prnt('', "Exception in insert_message: %s" % ex.message)
         raise ex
@@ -87,13 +87,13 @@ def insert_log(servername, channelname, username, message, hilight,
 
 
 def postgre_log_enable_cb(data, buffer, args):
-    global connect
+    global connection
     global msg_hook
     global join_hook
     global part_hook
 
     try:
-        connect = psycopg2.connect(args)
+        connection = psycopg2.connect(args)
     except psycopg2.OperationalError as ex:
         weechat.prnt('', 'Valid connection string is required.')
         return weechat.WEECHAT_RC_ERROR
@@ -108,15 +108,15 @@ def postgre_log_enable_cb(data, buffer, args):
 
 
 def postgre_log_disable_cb(data=None, buffer=None, args=None):
-    global connect
+    global connection
     global msg_hook
     global join_hook
     global part_hook
-    if connect is None:
+    if connection is None:
         weechat.prnt('', "postgre_log is already disabled.")
         return weechat.WEECHAT_RC_OK
-    connect.close()
-    connect = None
+    connection.close()
+    connection = None
     if msg_hook:
         weechat.unhook(msg_hook)
         msg_hook = None
