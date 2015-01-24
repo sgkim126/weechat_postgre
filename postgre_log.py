@@ -78,11 +78,10 @@ def insert_log(servername, channelname, username, message, hilight,
         query = ("INSERT INTO"
                  "  weechat_message (username, servername, channelname,"
                  "    message, hilight, command, time)"
-                 "  VALUES ('%s', '%s', '%s', '%s', %s, '%s',"
+                 "  VALUES (%s, %s, %s, %s, %s, %s,"
                  "    to_timestamp(%s))")
-        cursor.execute(query %
-                       (username, servername, channelname,
-                        message, hilight, command, time))
+        cursor.execute(query, [username, servername, channelname, message,
+                               hilight, command, time])
         connection.commit()
     except Exception as ex:
         print_and_reraise(ex)
