@@ -18,7 +18,7 @@ join_hook = None
 
 def print_and_reraise(exception):
     file, line, function, text = traceback.extract_stack()[-2]
-    weechat.prnt('', "Exception in %s: %s" % function % exception.message)
+    weechat.prnt('', "Exception in %s: %s" % (function, exception.message))
     raise exception
 
 
