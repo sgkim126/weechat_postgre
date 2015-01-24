@@ -1,4 +1,5 @@
 import psycopg2
+import traceback
 import weechat
 
 
@@ -15,6 +16,12 @@ part_hook = None
 join_hook = None
 
 
+def print_and_reraise(exception):
+    file, line, function, text = traceback.extract_stack()[-2]
+    weechat.prnt('', "Exception in %s: %s" % function % exception.message)
+    raise exception
+
+
 def check_table_exists():
     cursor = connection.cursor()
     try:
@@ -24,8 +31,7 @@ def check_table_exists():
         cursor.execute(query)
         return cursor.rowcount == 1
     except Exception as ex:
-        weechat.prnt('', "Exception in check_tabke_exists: %s" % ex.message)
-        raise ex
+        print_and_reraise(ex)
     finally:
         cursor.close()
 
@@ -45,8 +51,7 @@ def create_table():
         cursor.execute(query)
         connection.commit()
     except Exception as ex:
-        weechat.prnt('', "Exception in create_table: %s" % ex.message)
-        raise ex
+        print_and_reraise(ex)
     finally:
         cursor.close()
 
@@ -80,8 +85,7 @@ def insert_log(servername, channelname, username, message, hilight,
                         message, hilight, command, time))
         connection.commit()
     except Exception as ex:
-        weechat.prnt('', "Exception in insert_message: %s" % ex.message)
-        raise ex
+        print_and_reraise(ex)
     finally:
         cursor.close()
 
