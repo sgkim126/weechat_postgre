@@ -10,10 +10,10 @@ SCRIPT_LICENCE = "GPL3"
 SCRIPT_DESC = "Save messages in PostgreSQL"
 
 
-connection = None
-msg_hook = None
-part_hook = None
-join_hook = None
+_connection = None
+_msg_hook = None
+_part_hook = None
+_join_hook = None
 
 
 def print_and_reraise(exception):
@@ -23,7 +23,8 @@ def print_and_reraise(exception):
 
 
 def is_table_exists():
-    cursor = connection.cursor()
+    global _connection
+    cursor = _connection.cursor()
     try:
         query = ("SELECT *"
                  "  FROM information_schema.tables"
@@ -37,9 +38,10 @@ def is_table_exists():
 
 
 def create_table_if_not_exists():
+    global _connection
     if is_table_exists():
         return
-    cursor = connection.cursor()
+    cursor = _connection.cursor()
     try:
         query = ("CREATE TABLE weechat_message ("
                  "  id SERIAL PRIMARY KEY,"
@@ -51,7 +53,7 @@ def create_table_if_not_exists():
                  "  command VARCHAR(16) NOT NULL,"
                  "  time TIMESTAMP WITH TIME ZONE NOT NULL)")
         cursor.execute(query)
-        connection.commit()
+        _connection.commit()
     except Exception as ex:
         print_and_reraise(ex)
     finally:
@@ -75,7 +77,8 @@ def log_cb(command, buf, date, tags, displayed, hilight, prefix, msg):
 
 def insert_log(servername, channelname, username, message, hilight,
                command, time):
-    cursor = connection.cursor()
+    global _connection
+    cursor = _connection.cursor()
     try:
         query = ("INSERT INTO"
                  "  weechat_message (username, servername, channelname,"
@@ -84,7 +87,7 @@ def insert_log(servername, channelname, username, message, hilight,
                  "    to_timestamp(%s))")
         cursor.execute(query, [username, servername, channelname, message,
                                hilight, command, time])
-        connection.commit()
+        _connection.commit()
     except Exception as ex:
         print_and_reraise(ex)
     finally:
@@ -92,44 +95,44 @@ def insert_log(servername, channelname, username, message, hilight,
 
 
 def postgre_log_enable_cb(data, buffer, args):
-    global connection
-    global msg_hook
-    global join_hook
-    global part_hook
+    global _connection
+    global _msg_hook
+    global _join_hook
+    global _part_hook
 
     try:
-        connection = psycopg2.connect(args)
+        _connection = psycopg2.connect(args)
     except psycopg2.OperationalError as ex:
         weechat.prnt('', 'Valid connection string is required.')
         return weechat.WEECHAT_RC_ERROR
 
     create_table_if_not_exists()
-    msg_hook = weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb',
-                                  'PRIVMSG')
-    join_hook = weechat.hook_print('', 'irc_join', '', 1, 'log_cb', 'JOIN')
-    part_hook = weechat.hook_print('', 'irc_part', '', 1, 'log_cb', 'PART')
+    _msg_hook = weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb',
+                                   'PRIVMSG')
+    _join_hook = weechat.hook_print('', 'irc_join', '', 1, 'log_cb', 'JOIN')
+    _part_hook = weechat.hook_print('', 'irc_part', '', 1, 'log_cb', 'PART')
     return weechat.WEECHAT_RC_OK
 
 
 def postgre_log_disable_cb(data=None, buffer=None, args=None):
-    global connection
-    global msg_hook
-    global join_hook
-    global part_hook
-    if connection is None:
+    global _connection
+    global _msg_hook
+    global _join_hook
+    global _part_hook
+    if _connection is None:
         weechat.prnt('', "postgre_log is already disabled.")
         return weechat.WEECHAT_RC_OK
-    connection.close()
-    connection = None
-    if msg_hook:
-        weechat.unhook(msg_hook)
-        msg_hook = None
-    if join_hook:
-        weechat.unhook(join_hook)
-        join_hook = None
-    if part_hook:
-        weechat.unhook(part_hook)
-        part_hook = None
+    _connection.close()
+    _connection = None
+    if _msg_hook:
+        weechat.unhook(_msg_hook)
+        _msg_hook = None
+    if _join_hook:
+        weechat.unhook(_join_hook)
+        _join_hook = None
+    if _part_hook:
+        weechat.unhook(_part_hook)
+        _part_hook = None
     return weechat.WEECHAT_RC_OK
 
 
