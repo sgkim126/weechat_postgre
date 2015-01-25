@@ -22,7 +22,7 @@ def print_and_reraise(exception):
     raise exception
 
 
-def check_table_exists():
+def is_table_exists():
     cursor = connection.cursor()
     try:
         query = ("SELECT *"
@@ -36,7 +36,9 @@ def check_table_exists():
         cursor.close()
 
 
-def create_table():
+def create_table_if_not_exists():
+    if is_table_exists():
+        return
     cursor = connection.cursor()
     try:
         query = ("CREATE TABLE weechat_message ("
@@ -101,8 +103,7 @@ def postgre_log_enable_cb(data, buffer, args):
         weechat.prnt('', 'Valid connection string is required.')
         return weechat.WEECHAT_RC_ERROR
 
-    if not check_table_exists():
-        create_table()
+    create_table_if_not_exists()
     msg_hook = weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb',
                                   'PRIVMSG')
     join_hook = weechat.hook_print('', 'irc_join', '', 1, 'log_cb', 'JOIN')
