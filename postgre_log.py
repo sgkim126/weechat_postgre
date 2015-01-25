@@ -16,12 +16,6 @@ _part_hook = None
 _join_hook = None
 
 
-def print_and_reraise(exception):
-    file, line, function, text = traceback.extract_stack()[-2]
-    weechat.prnt('', "Exception in %s: %s" % (function, exception.message))
-    raise exception
-
-
 def is_table_exists():
     global _connection
     cursor = _connection.cursor()
@@ -31,8 +25,6 @@ def is_table_exists():
                  "  WHERE table_name='weechat_message'")
         cursor.execute(query)
         return cursor.rowcount == 1
-    except Exception as ex:
-        print_and_reraise(ex)
     finally:
         cursor.close()
 
@@ -54,8 +46,6 @@ def create_table_if_not_exists():
                  "  time TIMESTAMP WITH TIME ZONE NOT NULL)")
         cursor.execute(query)
         _connection.commit()
-    except Exception as ex:
-        print_and_reraise(ex)
     finally:
         cursor.close()
 
@@ -88,8 +78,6 @@ def insert_log(servername, channelname, username, message, hilight,
         cursor.execute(query, [username, servername, channelname, message,
                                hilight, command, time])
         _connection.commit()
-    except Exception as ex:
-        print_and_reraise(ex)
     finally:
         cursor.close()
 
