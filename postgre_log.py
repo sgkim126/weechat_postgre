@@ -15,37 +15,89 @@ _msg_hook = None
 _part_hook = None
 _join_hook = None
 
+_table_names = {}
 
-def is_table_exists():
+
+def get_table_name_from_database(server, channel):
     global _connection
     cursor = _connection.cursor()
     try:
-        query = ("SELECT *"
-                 "  FROM information_schema.tables"
-                 "  WHERE table_name='weechat_message'")
-        cursor.execute(query)
-        return cursor.rowcount == 1
+        query = ("SELECT id FROM weechat_table_map"
+                 " WHERE server = %s AND channel = %s")
+        cursor.execute(query, [server, channel])
+        result = cursor.fetchone()
+        if result is None:
+            return None
+        table_name = 'weechat_messages_%s' % result[0]
+        _table_names[server, channel] = table_name
+        return table_name
     finally:
         cursor.close()
 
 
-def create_table_if_not_exists():
+def is_table_exists(server, channel):
+    global _table_names
+    if (server, channel) in _table_names:
+        return True
+    table_name = get_table_name_from_database(server, channel)
+    if table_name is None:
+        return False
+    _table_names[server, channel] = table_name
+    return True
+
+
+def insert_new_table_map(server, channel):
     global _connection
-    if is_table_exists():
-        return
     cursor = _connection.cursor()
     try:
-        query = ("CREATE TABLE weechat_message ("
-                 "  id SERIAL PRIMARY KEY,"
-                 "  username CHAR(16) NOT NULL,"
-                 "  servername VARCHAR(64) NOT NULL,"
-                 "  channelname VARCHAR(50) NOT NULL,"
-                 "  message VARCHAR(512) NOT NULL,"
-                 "  hilight CHAR(1) NOT NULL,"
-                 "  command VARCHAR(16) NOT NULL,"
-                 "  time TIMESTAMP WITH TIME ZONE NOT NULL)")
+        query = ("INSERT INTO weechat_table_map(server, channel)"
+                 " VALUES (%s, %s)")
+        cursor.execute(query, [server, channel])
+        _connection.commit()
+    finally:
+        cursor.close()
+
+
+def create_messages_table(server, channel):
+    insert_new_table_map(server, channel)
+    table_name = get_table_name_from_database(server, channel)
+    global _connection
+    cursor = _connection.cursor()
+    try:
+        query = ("CREATE TABLE " + table_name + " ("
+                 " id SERIAL PRIMARY KEY,"
+                 " username VARCHAR(16) NOT NULL,"
+                 " message VARCHAR(512) NOT NULL,"
+                 " hilight CHAR(1) NOT NULL,"
+                 " command VARCHAR(16) NOT NULL,"
+                 " time TIMESTAMP WITH TIME ZONE NOT NULL"
+                 ")")
         cursor.execute(query)
         _connection.commit()
+    finally:
+        cursor.close()
+
+
+def get_table_name(server, channel):
+    if not is_table_exists(server, channel):
+        create_messages_table(server, channel)
+    return _table_names[server, channel]
+
+
+def create_map_table_if_not_exists():
+    global _connection
+    cursor = _connection.cursor()
+    try:
+        query = ("CREATE TABLE weechat_table_map ("
+                 "  id SERIAL PRIMARY KEY,"
+                 "  server VARCHAR(64) NOT NULL,"
+                 "  channel VARCHAR(50) NOT NULL,"
+                 "  UNIQUE(server, channel)"
+                 ")")
+        cursor.execute(query)
+        _connection.commit()
+    except psycopg2.ProgrammingError:
+        _connection.rollback()
     finally:
         cursor.close()
 
@@ -65,18 +117,16 @@ def log_cb(command, buf, date, tags, displayed, hilight, prefix, msg):
     return weechat.WEECHAT_RC_OK
 
 
-def insert_log(servername, channelname, username, message, hilight,
-               command, time):
+def insert_log(server, channel, username, message, hilight, command, time):
+    table_name = get_table_name(server, channel)
+
     global _connection
     cursor = _connection.cursor()
     try:
-        query = ("INSERT INTO"
-                 "  weechat_message (username, servername, channelname,"
-                 "    message, hilight, command, time)"
-                 "  VALUES (%s, %s, %s, %s, %s, %s,"
-                 "    to_timestamp(%s))")
-        cursor.execute(query, [username, servername, channelname, message,
-                               hilight, command, time])
+        query = ("INSERT INTO " + table_name +
+                 " (username, message, hilight, command, time)"
+                 " VALUES (%s, %s, %s, %s, to_timestamp(%s))")
+        cursor.execute(query, [username, message, hilight, command, time])
         _connection.commit()
     finally:
         cursor.close()
@@ -94,7 +144,7 @@ def postgre_log_enable_cb(data, buffer, args):
         weechat.prnt('', 'Valid connection string is required.')
         return weechat.WEECHAT_RC_ERROR
 
-    create_table_if_not_exists()
+    create_map_table_if_not_exists()
     _msg_hook = weechat.hook_print('', 'irc_privmsg', '', 1, 'msg_cb',
                                    'PRIVMSG')
     _join_hook = weechat.hook_print('', 'irc_join', '', 1, 'log_cb', 'JOIN')
