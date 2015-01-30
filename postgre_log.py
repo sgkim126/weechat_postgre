@@ -18,18 +18,40 @@ _join_hook = None
 _table_names = {}
 
 
+def insert_map_query():
+    return ("INSERT INTO weechat_table_map(server, channel)"
+            " VALUES (%s, %s)")
+
+
+def table_name_query():
+    return ("SELECT id FROM weechat_table_map"
+            " WHERE server = %s AND channel = %s")
+
+
+def get_table_name_from_id(table_id):
+    return 'weechat_messages_%s' % table_id
+
+
+def create_message_table_query(table_id):
+    return ("CREATE TABLE %s ("
+            " id SERIAL PRIMARY KEY,"
+            " username VARCHAR(16) NOT NULL,"
+            " message VARCHAR(512) NOT NULL,"
+            " hilight CHAR(1) NOT NULL,"
+            " command VARCHAR(16) NOT NULL,"
+            " time TIMESTAMP WITH TIME ZONE NOT NULL"
+            ")") % get_table_name_from_id(table_id)
+
+
 def get_table_name_from_database(server, channel):
     global _connection
     cursor = _connection.cursor()
     try:
-        query = ("SELECT id FROM weechat_table_map"
-                 " WHERE server = %s AND channel = %s")
-        cursor.execute(query, [server, channel])
+        cursor.execute(table_name_query(), [server, channel])
         result = cursor.fetchone()
         if result is None:
             return None
-        table_name = 'weechat_messages_%s' % result[0]
-        _table_names[server, channel] = table_name
+        _table_names[server, channel] = get_table_name_from_id(result[0])
         return table_name
     finally:
         cursor.close()
@@ -46,34 +68,22 @@ def is_table_exists(server, channel):
     return True
 
 
-def insert_new_table_map(server, channel):
-    global _connection
-    cursor = _connection.cursor()
-    try:
-        query = ("INSERT INTO weechat_table_map(server, channel)"
-                 " VALUES (%s, %s)")
-        cursor.execute(query, [server, channel])
-        _connection.commit()
-    finally:
-        cursor.close()
-
-
 def create_messages_table(server, channel):
-    insert_new_table_map(server, channel)
-    table_name = get_table_name_from_database(server, channel)
     global _connection
     cursor = _connection.cursor()
     try:
-        query = ("CREATE TABLE " + table_name + " ("
-                 " id SERIAL PRIMARY KEY,"
-                 " username VARCHAR(16) NOT NULL,"
-                 " message VARCHAR(512) NOT NULL,"
-                 " hilight CHAR(1) NOT NULL,"
-                 " command VARCHAR(16) NOT NULL,"
-                 " time TIMESTAMP WITH TIME ZONE NOT NULL"
-                 ")")
-        cursor.execute(query)
+        cursor.execute(insert_map_query(), [server, channel])
+
+        cursor.execute(table_name_query(), [server, channel])
+        table_id = cursor.fetchone()[0]
+
+        cursor.execute(create_message_table_query(table_id))
+
+        _table_names[server, channel] = get_table_name_from_id(table_id)
+
         _connection.commit()
+    except Exception as ex:
+        _connection.rollback()
     finally:
         cursor.close()
 
